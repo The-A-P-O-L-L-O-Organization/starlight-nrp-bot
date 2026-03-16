@@ -1,0 +1,31 @@
+{
+  "name": "starlight-nrp-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for the Starlight NRP space nation roleplay",
+  "main": "dist/index.js",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "deploy": "ts-node src/deploy-commands.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.11.5",
+    "@types/node-cron": "^3.0.11",
+    "@vitest/coverage-v8": "^4.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.0"
+  }
+}
