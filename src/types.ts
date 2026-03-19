@@ -56,15 +56,15 @@ export const RESOURCE_META: Record<
   ResourceType,
   { label: string; emoji: string; category: 'Basic' | 'Advanced' | 'Research' }
 > = {
-  energy_credits: { label: 'Energy Credits', emoji: '⚡', category: 'Basic' },
-  minerals:       { label: 'Minerals',        emoji: '⛏️',  category: 'Basic' },
-  food:           { label: 'Food',            emoji: '🌾', category: 'Basic' },
-  trade:          { label: 'Trade',           emoji: '💰', category: 'Basic' },
-  alloys:         { label: 'Alloys',          emoji: '🔩', category: 'Advanced' },
-  consumer_goods: { label: 'Consumer Goods',  emoji: '📦', category: 'Advanced' },
-  physics:        { label: 'Physics',         emoji: '🔭', category: 'Research' },
-  society:        { label: 'Society',         emoji: '📜', category: 'Research' },
-  engineering:    { label: 'Engineering',     emoji: '⚙️',  category: 'Research' },
+  energy_credits: { label: 'Energy Credits', emoji: 'EC', category: 'Basic' },
+  minerals:       { label: 'Minerals',        emoji: 'MI',  category: 'Basic' },
+  food:           { label: 'Food',            emoji: 'FO', category: 'Basic' },
+  trade:          { label: 'Trade',           emoji: 'TR', category: 'Basic' },
+  alloys:         { label: 'Alloys',          emoji: 'AL', category: 'Advanced' },
+  consumer_goods: { label: 'Consumer Goods',  emoji: 'CG', category: 'Advanced' },
+  physics:        { label: 'Physics',         emoji: 'PH', category: 'Research' },
+  society:        { label: 'Society',         emoji: 'SO', category: 'Research' },
+  engineering:    { label: 'Engineering',     emoji: 'EN',  category: 'Research' },
 };
 
 // ── Nation Status Flags ───────────────────────────────────────────────────────
@@ -79,13 +79,13 @@ export type StatusFlag =
   | 'custom';
 
 export const STATUS_META: Record<StatusFlag, { label: string; emoji: string; productionModifier: number }> = {
-  at_war:       { label: 'At War',       emoji: '⚔️',  productionModifier: -0.15 },
-  in_recession: { label: 'In Recession', emoji: '📉', productionModifier: -0.20 },
-  golden_age:   { label: 'Golden Age',   emoji: '✨', productionModifier:  0.25 },
-  blockaded:    { label: 'Blockaded',    emoji: '🚫', productionModifier: -0.10 },
-  in_civil_war: { label: 'Civil War',    emoji: '🔥', productionModifier: -0.30 },
-  prosperous:   { label: 'Prosperous',   emoji: '💫', productionModifier:  0.10 },
-  custom:       { label: 'Custom',       emoji: '🏷️',  productionModifier:  0.00 },
+  at_war:       { label: 'At War',       emoji: 'WAR',  productionModifier: -0.15 },
+  in_recession: { label: 'In Recession', emoji: 'REC', productionModifier: -0.20 },
+  golden_age:   { label: 'Golden Age',   emoji: 'GOLD', productionModifier:  0.25 },
+  blockaded:    { label: 'Blockaded',    emoji: 'BLOCK', productionModifier: -0.10 },
+  in_civil_war: { label: 'Civil War',    emoji: 'CIVIL', productionModifier: -0.30 },
+  prosperous:   { label: 'Prosperous',   emoji: 'PROS', productionModifier:  0.10 },
+  custom:       { label: 'Custom',       emoji: 'TAG',  productionModifier:  0.00 },
 };
 
 export const STATUS_FLAGS: StatusFlag[] = [

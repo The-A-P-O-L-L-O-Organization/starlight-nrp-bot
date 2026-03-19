@@ -16,6 +16,8 @@ import {
   areAllied,
   logAuditEvent,
   getResources,
+  getBlockadeInfo,
+  type BlockadeDirection,
 } from '../db/schema';
 import { RESOURCE_TYPES, RESOURCE_META } from '../types';
 
@@ -102,7 +104,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   if (!myNation) {
     await interaction.reply({
       content: 'You do not have a registered nation. Ask the GM to register one for you.',
-      ephemeral: true,
+      flags: 64,
     });
     return;
   }
@@ -116,13 +118,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const requestAmount = interaction.options.getNumber('request-amount', true);
 
     if (targetUser.id === interaction.user.id) {
-      await interaction.reply({ content: 'You cannot trade with yourself.', ephemeral: true });
+      await interaction.reply({ content: 'You cannot trade with yourself.', flags: 64 });
       return;
     }
 
     const targetNation = getNationByUserId(targetUser.id);
     if (!targetNation) {
-      await interaction.reply({ content: `<@${targetUser.id}> does not have a registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> does not have a registered nation.`, flags: 64 });
       return;
     }
 
@@ -130,7 +132,27 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (isSanctioned(targetNation.id)) {
       await interaction.reply({
         content: `**${targetNation.name}** is currently under sanctions and cannot receive trades.`,
-        ephemeral: true,
+        flags: 64,
+      });
+      return;
+    }
+
+    // Check if target is blockaded from receiving trades
+    const targetBlockade = getBlockadeInfo(targetNation.id);
+    if (targetBlockade && (targetBlockade.direction === 'incoming' || targetBlockade.direction === 'both')) {
+      await interaction.reply({
+        content: `**${targetNation.name}** is currently blockaded and cannot receive trades.`,
+        flags: 64,
+      });
+      return;
+    }
+
+    // Check if proposer is blockaded from sending trades
+    const proposerBlockade = getBlockadeInfo(myNation.id);
+    if (proposerBlockade && (proposerBlockade.direction === 'outgoing' || proposerBlockade.direction === 'both')) {
+      await interaction.reply({
+        content: `Your nation is currently blockaded and cannot send trades.`,
+        flags: 64,
       });
       return;
     }
@@ -143,7 +165,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const offerMeta = RESOURCE_META[offerType as keyof typeof RESOURCE_META];
       await interaction.reply({
         content: `You only have **${current} ${offerMeta.label}** — cannot offer **${offerAmount.toLocaleString()}**.`,
-        ephemeral: true,
+        flags: 64,
       });
       return;
     }
@@ -170,7 +192,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.reply({
       content:
-        `📦 Trade proposal **#${tradeId}** sent to **${targetNation.name}** (<@${targetUser.id}>)!\n\n` +
+        `Trade proposal **#${tradeId}** sent to **${targetNation.name}** (<@${targetUser.id}>)!\n\n` +
         `You offer: **${offerAmount.toLocaleString()} ${offerMeta.emoji} ${offerMeta.label}**\n` +
         `You request: **${requestAmount.toLocaleString()} ${requestMeta.emoji} ${requestMeta.label}**\n` +
         `Expires in **24 hours**. They can use \`/trade accept ${tradeId}\` or \`/trade reject ${tradeId}\`.` +
@@ -185,12 +207,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const trade = getTradeProposal(tradeId);
 
     if (!trade || trade.status !== 'pending') {
-      await interaction.reply({ content: `Trade proposal **#${tradeId}** is not pending or does not exist.`, ephemeral: true });
+      await interaction.reply({ content: `Trade proposal **#${tradeId}** is not pending or does not exist.`, flags: 64 });
       return;
     }
 
     if (trade.target_nation_id !== myNation.id) {
-      await interaction.reply({ content: `Trade **#${tradeId}** was not sent to your nation.`, ephemeral: true });
+      await interaction.reply({ content: `Trade **#${tradeId}** was not sent to your nation.`, flags: 64 });
       return;
     }
 
@@ -198,7 +220,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (!success) {
       await interaction.reply({
         content: `Trade **#${tradeId}** could not be completed — one or both nations no longer have sufficient resources.`,
-        ephemeral: true,
+        flags: 64,
       });
       return;
     }
@@ -217,7 +239,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.reply({
       content:
-        `✅ Trade **#${tradeId}** completed!\n\n` +
+        `[SUCCESS] Trade **#${tradeId}** completed!\n\n` +
         `**${proposerNation?.name ?? 'Unknown'}** gave: **${trade.offer_amount.toLocaleString()} ${offerMeta.emoji} ${offerMeta.label}**\n` +
         `**${myNation.name}** gave: **${trade.request_amount.toLocaleString()} ${requestMeta.emoji} ${requestMeta.label}**`,
     });
@@ -230,12 +252,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const trade = getTradeProposal(tradeId);
 
     if (!trade || trade.status !== 'pending') {
-      await interaction.reply({ content: `Trade proposal **#${tradeId}** is not pending or does not exist.`, ephemeral: true });
+      await interaction.reply({ content: `Trade proposal **#${tradeId}** is not pending or does not exist.`, flags: 64 });
       return;
     }
 
     if (trade.target_nation_id !== myNation.id) {
-      await interaction.reply({ content: `Trade **#${tradeId}** was not sent to your nation.`, ephemeral: true });
+      await interaction.reply({ content: `Trade **#${tradeId}** was not sent to your nation.`, flags: 64 });
       return;
     }
 
@@ -243,7 +265,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     const proposerNation = getNationById(trade.proposer_nation_id);
     await interaction.reply({
-      content: `❌ Trade proposal **#${tradeId}** from **${proposerNation?.name ?? 'Unknown'}** has been rejected.`,
+      content: `[FAIL] Trade proposal **#${tradeId}** from **${proposerNation?.name ?? 'Unknown'}** has been rejected.`,
     });
     return;
   }
@@ -254,12 +276,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const trade = getTradeProposal(tradeId);
 
     if (!trade || trade.status !== 'pending') {
-      await interaction.reply({ content: `Trade proposal **#${tradeId}** is not pending or does not exist.`, ephemeral: true });
+      await interaction.reply({ content: `Trade proposal **#${tradeId}** is not pending or does not exist.`, flags: 64 });
       return;
     }
 
     if (trade.proposer_nation_id !== myNation.id) {
-      await interaction.reply({ content: `Trade **#${tradeId}** is not your proposal.`, ephemeral: true });
+      await interaction.reply({ content: `Trade **#${tradeId}** is not your proposal.`, flags: 64 });
       return;
     }
 
@@ -267,7 +289,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.reply({
       content: `Trade proposal **#${tradeId}** has been cancelled.`,
-      ephemeral: true,
+      flags: 64,
     });
     return;
   }
@@ -277,7 +299,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const trades = getPendingTradesForNation(myNation.id);
 
     if (trades.length === 0) {
-      await interaction.reply({ content: 'No pending trades involving your nation.', ephemeral: true });
+      await interaction.reply({ content: 'No pending trades involving your nation.', flags: 64 });
       return;
     }
 
@@ -298,12 +320,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     });
 
     const embed = new EmbedBuilder()
-      .setTitle(`📦 Pending Trades — ${myNation.name}`)
+      .setTitle(`Pending Trades — ${myNation.name}`)
       .setDescription(lines.join('\n\n'))
       .setColor(0xf0a500)
       .setFooter({ text: 'Starlight NRP • Use /trade accept or /trade reject' })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
   }
 }

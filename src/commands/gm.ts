@@ -38,6 +38,7 @@ import {
   archiveSeason,
   resetForNewSeason,
   buildGameSnapshot,
+  getBlockadeInfo,
 } from '../db/schema';
 import { buildResourceEmbed } from '../utils/embeds';
 import { runTick } from '../utils/scheduler';
@@ -142,6 +143,9 @@ export const data = new SlashCommandBuilder()
       )
       .addNumberOption((o) =>
         o.setName('amount').setDescription('Amount to transfer').setRequired(true).setMinValue(1),
+      )
+      .addBooleanOption((o) =>
+        o.setName('force').setDescription('Bypass blockade restrictions').setRequired(false),
       ),
   )
 
@@ -179,6 +183,17 @@ export const data = new SlashCommandBuilder()
       )
       .addStringOption((o) =>
         o.setName('label').setDescription('Custom display label (defaults to status name)').setRequired(false),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('direction')
+          .setDescription('Blockade direction (only for blockaded status)')
+          .setRequired(false)
+          .addChoices(
+            { name: 'Both (blocks sending & receiving)', value: 'both' },
+            { name: 'Incoming (blocks receiving)', value: 'incoming' },
+            { name: 'Outgoing (blocks sending)', value: 'outgoing' },
+          ),
       ),
   )
 
@@ -397,7 +412,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!isGM(interaction.member as GuildMember)) {
-    await interaction.reply({ content: 'Only the **Owner/GM** can use `/gm` commands.', ephemeral: true });
+    await interaction.reply({ content: 'Only the **Owner/GM** can use `/gm` commands.', flags: 64 });
     return;
   }
 
@@ -409,12 +424,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
     const embed = buildResourceEmbed(nation, nation.id);
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
     return;
   }
 
@@ -423,7 +438,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nations = getAllNations();
 
     if (nations.length === 0) {
-      await interaction.reply({ content: 'No nations registered yet.', ephemeral: true });
+      await interaction.reply({ content: 'No nations registered yet.', flags: 64 });
       return;
     }
 
@@ -449,14 +464,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     });
 
     const embed = new EmbedBuilder()
-      .setTitle(`🌌 GM Overview — Year ${year}`)
+      .setTitle(`GM Overview — Year ${year}`)
       .setDescription('Production summary for all star-nations')
       .setColor(0x5865f2)
       .addFields(fields)
       .setFooter({ text: 'Starlight NRP • GM Eyes Only' })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
     return;
   }
 
@@ -466,7 +481,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
@@ -485,7 +500,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
@@ -495,7 +510,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         content: `Nation **${nation.name}** has been renamed to **${newName}**.`,
       });
     } catch {
-      await interaction.reply({ content: `A nation named **${newName}** already exists.`, ephemeral: true });
+      await interaction.reply({ content: `A nation named **${newName}** already exists.`, flags: 64 });
     }
     return;
   }
@@ -506,7 +521,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
@@ -523,7 +538,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const year = interaction.options.getInteger('year', true);
     setYear(year);
     await interaction.reply({
-      content: `🗓️ In-game year set to **${year}**.`,
+      content: `In-game year set to **${year}**.`,
     });
     return;
   }
@@ -537,7 +552,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
     await interaction.editReply({
-      content: `⚡ Production tick triggered manually. Year is now **${getCurrentYear()}**. Check <#${process.env.TIMELINE_CHANNEL_ID ?? 'timeline-events'}> for the announcement.`,
+      content: `Production tick triggered manually. Year is now **${getCurrentYear()}**. Check <#${process.env.TIMELINE_CHANNEL_ID ?? 'timeline-events'}> for the announcement.`,
     });
     return;
   }
@@ -548,7 +563,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (patched === 0) {
       await interaction.reply({
         content: 'All nations already have production values set — nothing to backfill.',
-        ephemeral: true,
+        flags: 64,
       });
     } else {
       await interaction.reply({
@@ -564,9 +579,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const toUser = interaction.options.getUser('to', true);
     const resourceType = interaction.options.getString('type', true);
     const amount = interaction.options.getNumber('amount', true);
+    const force = interaction.options.getBoolean('force') ?? false;
 
     if (fromUser.id === toUser.id) {
-      await interaction.reply({ content: 'Cannot transfer resources to the same nation.', ephemeral: true });
+      await interaction.reply({ content: 'Cannot transfer resources to the same nation.', flags: 64 });
       return;
     }
 
@@ -574,12 +590,33 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const toNation = getNationByUserId(toUser.id);
 
     if (!fromNation) {
-      await interaction.reply({ content: `<@${fromUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${fromUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
     if (!toNation) {
-      await interaction.reply({ content: `<@${toUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${toUser.id}> has no registered nation.`, flags: 64 });
       return;
+    }
+
+    // Check blockade restrictions unless --force is used
+    if (!force) {
+      const toBlockade = getBlockadeInfo(toNation.id);
+      if (toBlockade && (toBlockade.direction === 'incoming' || toBlockade.direction === 'both')) {
+        await interaction.reply({
+          content: `**${toNation.name}** is blockaded and cannot receive transfers. Use \`force: True\` to override.`,
+          flags: 64,
+        });
+        return;
+      }
+
+      const fromBlockade = getBlockadeInfo(fromNation.id);
+      if (fromBlockade && (fromBlockade.direction === 'outgoing' || fromBlockade.direction === 'both')) {
+        await interaction.reply({
+          content: `**${fromNation.name}** is blockaded and cannot send transfers. Use \`force: True\` to override.`,
+          flags: 64,
+        });
+        return;
+      }
     }
 
     const fromResources = getResources(fromNation.id);
@@ -588,7 +625,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const current = fromRow ? Math.floor(fromRow.stockpile).toLocaleString() : '0';
       await interaction.reply({
         content: `**${fromNation.name}** only has **${current}** ${RESOURCE_META[resourceType as keyof typeof RESOURCE_META].label} — cannot transfer **${amount.toLocaleString()}**.`,
-        ephemeral: true,
+        flags: 64,
       });
       return;
     }
@@ -600,11 +637,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       to: toNation.name,
       resource: resourceType,
       amount,
+      forced: force,
     }, fromNation.id);
 
     const meta = RESOURCE_META[resourceType as keyof typeof RESOURCE_META];
+    const forceText = force ? ' **(forced)**' : '';
     await interaction.reply({
-      content: `${meta.emoji} Transferred **${amount.toLocaleString()} ${meta.label}** from **${fromNation.name}** to **${toNation.name}**.`,
+      content: `${meta.emoji} Transferred **${amount.toLocaleString()} ${meta.label}** from **${fromNation.name}** to **${toNation.name}**${forceText}.`,
     });
     return;
   }
@@ -636,25 +675,50 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const targetUser = interaction.options.getUser('player', true);
     const status = interaction.options.getString('status', true) as import('../types').StatusFlag;
     const customLabel = interaction.options.getString('label');
+    const direction = interaction.options.getString('direction') as 'incoming' | 'outgoing' | 'both' | null;
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
     const label = customLabel?.trim() || STATUS_META[status].label;
-    setNationStatus(nation.id, status, label);
+    
+    // Build metadata for blockade
+    let metadata: Record<string, any> | undefined;
+    if (status === 'blockaded' && direction) {
+      metadata = { direction };
+    } else if (status === 'blockaded') {
+      // Default to 'both' if blockaded but no direction specified
+      metadata = { direction: 'both' };
+    }
+    
+    setNationStatus(nation.id, status, label, metadata);
 
-    logAuditEvent('status_set', interaction.user.id, { status, label }, nation.id);
+    logAuditEvent('status_set', interaction.user.id, { status, label, metadata }, nation.id);
 
     const meta = STATUS_META[status];
-    const modStr = meta.productionModifier !== 0
-      ? ` (${meta.productionModifier > 0 ? '+' : ''}${Math.round(meta.productionModifier * 100)}% production)`
-      : '';
+    
+    // Build response message
+    let responseMsg = `${meta.emoji} **${nation.name}** status set to **${label}**`;
+    
+    if (status === 'blockaded') {
+      const actualDirection = direction || 'both';
+      const severity = -10; // Initial severity
+      const directionText = actualDirection === 'both' ? 'blocks sending & receiving trades' :
+                           actualDirection === 'incoming' ? 'blocks receiving trades' :
+                           'blocks sending trades';
+      responseMsg += ` (${directionText}, ${severity}% production, escalates over time)`;
+    } else {
+      const modStr = meta.productionModifier !== 0
+        ? ` (${meta.productionModifier > 0 ? '+' : ''}${Math.round(meta.productionModifier * 100)}% production)`
+        : '';
+      responseMsg += modStr;
+    }
 
     await interaction.reply({
-      content: `${meta.emoji} **${nation.name}** status set to **${label}**${modStr}.`,
+      content: responseMsg + '.',
     });
     return;
   }
@@ -666,13 +730,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
     const removed = removeNationStatus(nation.id, status);
     if (!removed) {
-      await interaction.reply({ content: `**${nation.name}** does not have the **${STATUS_META[status].label}** status.`, ephemeral: true });
+      await interaction.reply({ content: `**${nation.name}** does not have the **${STATUS_META[status].label}** status.`, flags: 64 });
       return;
     }
 
@@ -694,7 +758,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
@@ -720,14 +784,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
     const mods = getProductionModifiers(nation.id);
     const mod = mods.find((m) => m.id === modId);
     if (!mod) {
-      await interaction.reply({ content: `No active modifier with ID **${modId}** found on **${nation.name}**.`, ephemeral: true });
+      await interaction.reply({ content: `No active modifier with ID **${modId}** found on **${nation.name}**.`, flags: 64 });
       return;
     }
 
@@ -746,7 +810,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
@@ -768,7 +832,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
@@ -776,7 +840,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const meta = RESOURCE_META[resourceType as keyof typeof RESOURCE_META];
 
     if (!removed) {
-      await interaction.reply({ content: `No cap was set for **${meta.label}** on **${nation.name}**.`, ephemeral: true });
+      await interaction.reply({ content: `No cap was set for **${meta.label}** on **${nation.name}**.`, flags: 64 });
       return;
     }
 
@@ -795,7 +859,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const label = interaction.options.getString('label');
 
     if (payerUser.id === receiverUser.id) {
-      await interaction.reply({ content: 'Payer and receiver cannot be the same nation.', ephemeral: true });
+      await interaction.reply({ content: 'Payer and receiver cannot be the same nation.', flags: 64 });
       return;
     }
 
@@ -803,11 +867,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const receiverNation = getNationByUserId(receiverUser.id);
 
     if (!payerNation) {
-      await interaction.reply({ content: `<@${payerUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${payerUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
     if (!receiverNation) {
-      await interaction.reply({ content: `<@${receiverUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${receiverUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
@@ -835,7 +899,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const tribute = tributes.find((t) => t.id === tributeId);
 
     if (!tribute) {
-      await interaction.reply({ content: `No tribute agreement found with ID **${tributeId}**.`, ephemeral: true });
+      await interaction.reply({ content: `No tribute agreement found with ID **${tributeId}**.`, flags: 64 });
       return;
     }
 
@@ -860,7 +924,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nation = getNationByUserId(targetUser.id);
 
     if (!nation) {
-      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> has no registered nation.`, flags: 64 });
       return;
     }
 
@@ -881,7 +945,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const sanction = allSanctions.find((s) => s.id === sanctionId);
 
     if (!sanction) {
-      await interaction.reply({ content: `No sanction found with ID **${sanctionId}**.`, ephemeral: true });
+      await interaction.reply({ content: `No sanction found with ID **${sanctionId}**.`, flags: 64 });
       return;
     }
 
@@ -901,7 +965,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const tributes = getTributes();
 
     if (tributes.length === 0) {
-      await interaction.reply({ content: 'No active tribute agreements.', ephemeral: true });
+      await interaction.reply({ content: 'No active tribute agreements.', flags: 64 });
       return;
     }
 
@@ -914,13 +978,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     });
 
     const embed = new EmbedBuilder()
-      .setTitle('💸 Tribute Agreements')
+      .setTitle('Tribute Agreements')
       .setDescription(lines.join('\n'))
       .setColor(0xf0a500)
       .setFooter({ text: 'Starlight NRP • GM Eyes Only' })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
     return;
   }
 
@@ -929,7 +993,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const sanctions = getAllSanctions();
 
     if (sanctions.length === 0) {
-      await interaction.reply({ content: 'No active sanctions.', ephemeral: true });
+      await interaction.reply({ content: 'No active sanctions.', flags: 64 });
       return;
     }
 
@@ -940,13 +1004,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     });
 
     const embed = new EmbedBuilder()
-      .setTitle('🚫 Active Sanctions')
+      .setTitle('Active Sanctions')
       .setDescription(lines.join('\n'))
       .setColor(0xe74c3c)
       .setFooter({ text: 'Starlight NRP • GM Eyes Only' })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
     return;
   }
 
@@ -959,7 +1023,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (filterUser) {
       const nation = getNationByUserId(filterUser.id);
       if (!nation) {
-        await interaction.reply({ content: `<@${filterUser.id}> has no registered nation.`, ephemeral: true });
+        await interaction.reply({ content: `<@${filterUser.id}> has no registered nation.`, flags: 64 });
         return;
       }
       nationId = nation.id;
@@ -969,7 +1033,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const entries = getAuditLog(nationId, 25);
 
     if (entries.length === 0) {
-      await interaction.reply({ content: `No audit entries found${nationId ? ` for **${nationName}**` : ''}.`, ephemeral: true });
+      await interaction.reply({ content: `No audit entries found${nationId ? ` for **${nationName}**` : ''}.`, flags: 64 });
       return;
     }
 
@@ -989,20 +1053,20 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const description = lines.join('\n').slice(0, 4000);
 
     const embed = new EmbedBuilder()
-      .setTitle(`📋 Audit Log — ${nationName}`)
+      .setTitle(`Audit Log — ${nationName}`)
       .setDescription(description)
       .setColor(0x7289da)
       .setFooter({ text: 'Starlight NRP • Last 25 entries' })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
     return;
   }
 
   // ── export-state ─────────────────────────────────────────────────────────────
   if (sub === 'export-state') {
     const label = interaction.options.getString('label', true).trim();
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     const filePath = archiveSeason(label);
     const fileName = filePath.split(path.sep).pop() ?? filePath;
@@ -1010,7 +1074,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     logAuditEvent('season_reset', interaction.user.id, { action: 'export', label, file: fileName });
 
     await interaction.editReply({
-      content: `✅ Game state exported to **\`${fileName}\`** in the \`data/\` directory.`,
+      content: `[SUCCESS] Game state exported to **\`${fileName}\`** in the \`data/\` directory.`,
     });
     return;
   }
@@ -1031,7 +1095,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.editReply({
       content:
-        `🌟 **New Season Started!**\n\n` +
+        `**New Season Started!**\n\n` +
         `Previous game archived to **\`${fileName}\`**.\n` +
         `All nations, resources, alliances, tributes, sanctions, and modifiers have been reset.\n` +
         `Starting year: **${startYear}**.\n\n` +

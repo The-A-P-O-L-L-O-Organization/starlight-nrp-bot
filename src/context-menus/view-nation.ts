@@ -13,11 +13,11 @@ export async function execute(interaction: UserContextMenuCommandInteraction): P
   if (!nation) {
     await interaction.reply({
       content: `<@${targetUser.id}> does not have a registered nation.`,
-      ephemeral: true,
+      flags: 64,
     });
     return;
   }
 
   const embed = buildResourceEmbed(nation, nation.id);
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  await interaction.reply({ embeds: [embed], flags: 64 });
 }

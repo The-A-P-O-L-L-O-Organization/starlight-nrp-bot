@@ -48,7 +48,7 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log(`[Bot] Logged in as ${client.user?.tag}`);
   startScheduler(client);
 });
@@ -70,7 +70,7 @@ client.on('interactionCreate', async (interaction: Interaction) => {
     }
   } catch (err) {
     console.error('[Bot] Interaction error:', err);
-    const reply = { content: 'An error occurred. Please try again.', ephemeral: true };
+    const reply = { content: 'An error occurred. Please try again.', flags: 64 };
     if (interaction.isRepliable()) {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(reply).catch(() => null);

@@ -45,7 +45,7 @@ export async function runTick(client: Client): Promise<boolean> {
       }
 
       const embed = new EmbedBuilder()
-        .setTitle('📅 Year Advanced')
+        .setTitle('Year Advanced')
         .setDescription(
           `The galaxy moves forward.\n\n` +
           `**Current Year: ${newYear}**\n\n` +

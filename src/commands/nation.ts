@@ -39,7 +39,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   if (sub === 'register') {
     if (!isGM(interaction.member as GuildMember)) {
-      await interaction.reply({ content: 'Only the **Owner/GM** can register nations.', ephemeral: true });
+      await interaction.reply({ content: 'Only the **Owner/GM** can register nations.', flags: 64 });
       return;
     }
 
@@ -47,7 +47,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const name = interaction.options.getString('name', true).trim();
 
     if (getNationByUserId(target.id)) {
-      await interaction.reply({ content: `<@${target.id}> already has a registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${target.id}> already has a registered nation.`, flags: 64 });
       return;
     }
 
@@ -55,7 +55,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       createNation(target.id, name);
       await interaction.reply({ content: `Nation **${name}** registered for <@${target.id}>.` });
     } catch {
-      await interaction.reply({ content: `A nation named **${name}** already exists.`, ephemeral: true });
+      await interaction.reply({ content: `A nation named **${name}** already exists.`, flags: 64 });
     }
     return;
   }
@@ -67,7 +67,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (!nation) {
       await interaction.reply({
         content: `<@${targetUser.id}> does not have a registered nation.`,
-        ephemeral: true,
+        flags: 64,
       });
       return;
     }
@@ -81,12 +81,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const nations = getAllNations();
 
     if (nations.length === 0) {
-      await interaction.reply({ content: 'No nations registered yet.', ephemeral: true });
+      await interaction.reply({ content: 'No nations registered yet.', flags: 64 });
       return;
     }
 
     const embed = new EmbedBuilder()
-      .setTitle('🌌 Registered Star-Nations')
+      .setTitle('Registered Star-Nations')
       .setColor(0x2b2d31)
       .setDescription(
         nations.map((n, i) => `**${i + 1}.** ${n.name} — <@${n.discord_user_id}>`).join('\n'),

@@ -8,6 +8,7 @@ import {
   DEFAULT_STOCKPILE,
   AuditAction,
   StatusFlag,
+  STATUS_META,
 } from '../types';
 
 const dbPath = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'starlight.db');
@@ -64,6 +65,7 @@ export function initDb(): void {
       status     TEXT    NOT NULL,
       label      TEXT    NOT NULL,
       applied_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      metadata   TEXT,   -- JSON data for additional config (e.g., blockade direction: 'incoming', 'outgoing', 'both')
       UNIQUE (nation_id, status)
     );
 
@@ -153,6 +155,31 @@ export function initDb(): void {
       created_at TEXT    NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  
+  // Run migrations for existing databases
+  runMigrations();
+}
+
+function runMigrations(): void {
+  const db = getDb();
+  
+  // Check if metadata column exists in nation_statuses
+  const tableInfo = db.prepare(`PRAGMA table_info(nation_statuses)`).all() as Array<{
+    cid: number;
+    name: string;
+    type: string;
+    notnull: number;
+    dflt_value: any;
+    pk: number;
+  }>;
+  
+  const hasMetadata = tableInfo.some(col => col.name === 'metadata');
+  
+  if (!hasMetadata) {
+    console.log('🔄 Running migration: Adding metadata column to nation_statuses...');
+    db.exec(`ALTER TABLE nation_statuses ADD COLUMN metadata TEXT`);
+    console.log('✅ Migration complete: metadata column added');
+  }
 }
 
 // ── Game state ────────────────────────────────────────────────────────────────
@@ -281,14 +308,36 @@ export function applyTick(): void {
         SELECT * FROM production_modifiers WHERE nation_id = ? AND ticks_remaining > 0
       `).all(nation.id) as { resource_type: string | null; multiplier: number }[];
 
+      // Get status flags for this nation
+      const statuses = db.prepare(`
+        SELECT status, applied_at, metadata FROM nation_statuses WHERE nation_id = ?
+      `).all(nation.id) as { status: StatusFlag; applied_at: string; metadata: string | null }[];
+
       for (const res of resources) {
         // Sum all applicable multipliers additively (1.0 base + all bonuses/penalties)
         let totalMultiplier = 1.0;
+        
+        // Apply temporary production modifiers from production_modifiers table
         for (const mod of modifiers) {
           if (mod.resource_type === null || mod.resource_type === res.resource_type) {
             totalMultiplier += (mod.multiplier - 1.0);
           }
         }
+        
+        // Apply status flag production modifiers (stacking)
+        for (const statusRow of statuses) {
+          const statusFlag = statusRow.status as StatusFlag;
+          
+          // Special handling for blockade - use time-based severity
+          if (statusFlag === 'blockaded') {
+            const severity = getBlockadeSeverity(nation.id);
+            totalMultiplier += severity; // severity is already negative
+          } else if (STATUS_META[statusFlag]) {
+            // All other status flags use their static modifier
+            totalMultiplier += STATUS_META[statusFlag].productionModifier;
+          }
+        }
+        
         // Clamp to minimum of 0 (production can't go negative)
         totalMultiplier = Math.max(0, totalMultiplier);
 
@@ -323,6 +372,8 @@ export function applyTick(): void {
     db.prepare(`DELETE FROM production_modifiers WHERE ticks_remaining <= 0`).run();
 
     // Apply tribute agreements
+    // NOTE: Tributes are processed regardless of blockade status - they represent
+    // treaty obligations that continue even when a nation is blockaded
     const tributes = db.prepare(`SELECT * FROM tribute_agreements`).all() as {
       payer_nation_id: number;
       receiver_nation_id: number;
@@ -426,12 +477,13 @@ export function applyDefaultsToAllNations(): number {
 
 // ── Nation Statuses ───────────────────────────────────────────────────────────
 
-export function setNationStatus(nationId: number, status: StatusFlag, label: string): void {
+export function setNationStatus(nationId: number, status: StatusFlag, label: string, metadata?: Record<string, any>): void {
+  const metadataJson = metadata ? JSON.stringify(metadata) : null;
   getDb().prepare(`
-    INSERT INTO nation_statuses (nation_id, status, label)
-    VALUES (?, ?, ?)
-    ON CONFLICT(nation_id, status) DO UPDATE SET label = excluded.label, applied_at = datetime('now')
-  `).run(nationId, status, label);
+    INSERT INTO nation_statuses (nation_id, status, label, metadata)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(nation_id, status) DO UPDATE SET label = excluded.label, metadata = excluded.metadata, applied_at = datetime('now')
+  `).run(nationId, status, label, metadataJson);
 }
 
 export function removeNationStatus(nationId: number, status: StatusFlag): boolean {
@@ -573,6 +625,74 @@ export function isSanctioned(nationId: number): boolean {
     SELECT id FROM sanctions WHERE target_nation_id = ? LIMIT 1
   `).get(nationId);
   return !!row;
+}
+
+// ── Blockade Helpers ──────────────────────────────────────────────────────────
+
+export function isBlockaded(nationId: number): boolean {
+  const row = getDb().prepare(`
+    SELECT id FROM nation_statuses WHERE nation_id = ? AND status = 'blockaded' LIMIT 1
+  `).get(nationId);
+  return !!row;
+}
+
+export type BlockadeDirection = 'incoming' | 'outgoing' | 'both';
+
+export function getBlockadeInfo(nationId: number): { direction: BlockadeDirection; appliedAt: string } | null {
+  const row = getDb().prepare(`
+    SELECT applied_at, metadata FROM nation_statuses 
+    WHERE nation_id = ? AND status = 'blockaded'
+  `).get(nationId) as { applied_at: string; metadata: string | null } | undefined;
+  
+  if (!row) return null;
+  
+  let direction: BlockadeDirection = 'both'; // default
+  if (row.metadata) {
+    try {
+      const parsed = JSON.parse(row.metadata);
+      if (parsed.direction && ['incoming', 'outgoing', 'both'].includes(parsed.direction)) {
+        direction = parsed.direction;
+      }
+    } catch {
+      // Invalid JSON, use default
+    }
+  }
+  
+  return { direction, appliedAt: row.applied_at };
+}
+
+export function getBlockadeSeverity(nationId: number): number {
+  const info = getBlockadeInfo(nationId);
+  if (!info) return 0;
+  
+  const appliedDate = new Date(info.appliedAt);
+  const now = new Date();
+  const msElapsed = now.getTime() - appliedDate.getTime();
+  const daysElapsed = Math.floor(msElapsed / (1000 * 60 * 60 * 24));
+  const weeksElapsed = Math.floor(daysElapsed / 7);
+  
+  // Escalating penalties over time
+  if (weeksElapsed < 4) return -0.10;      // -10% weeks 0-3
+  if (weeksElapsed < 8) return -0.15;      // -15% weeks 4-7
+  if (weeksElapsed < 12) return -0.20;     // -20% weeks 8-11
+  return -0.25;                             // -25% week 12+
+}
+
+export function getBlockadeWeeksUntilNextTier(nationId: number): number | null {
+  const info = getBlockadeInfo(nationId);
+  if (!info) return null;
+  
+  const appliedDate = new Date(info.appliedAt);
+  const now = new Date();
+  const msElapsed = now.getTime() - appliedDate.getTime();
+  const daysElapsed = Math.floor(msElapsed / (1000 * 60 * 60 * 24));
+  const weeksElapsed = Math.floor(daysElapsed / 7);
+  
+  // Calculate weeks until next tier
+  if (weeksElapsed < 4) return 4 - weeksElapsed;   // Until -15%
+  if (weeksElapsed < 8) return 8 - weeksElapsed;   // Until -20%
+  if (weeksElapsed < 12) return 12 - weeksElapsed; // Until -25%
+  return null; // Already at max penalty
 }
 
 // ── Tribute Agreements ────────────────────────────────────────────────────────

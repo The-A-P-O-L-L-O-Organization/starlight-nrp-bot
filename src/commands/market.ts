@@ -14,6 +14,7 @@ import {
   isSanctioned,
   logAuditEvent,
   getResources,
+  getBlockadeInfo,
 } from '../db/schema';
 import { RESOURCE_TYPES, RESOURCE_META } from '../types';
 
@@ -94,7 +95,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   if (!myNation) {
     await interaction.reply({
       content: 'You do not have a registered nation. Ask the GM to register one for you.',
-      ephemeral: true,
+      flags: 64,
     });
     return;
   }
@@ -108,7 +109,20 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const priceResource = interaction.options.getString('price-resource', true);
 
     if (resourceType === priceResource) {
-      await interaction.reply({ content: 'The traded resource and price resource cannot be the same.', ephemeral: true });
+      await interaction.reply({ content: 'The traded resource and price resource cannot be the same.', flags: 64 });
+      return;
+    }
+
+    // Check if poster is blockaded
+    const blockadeInfo = getBlockadeInfo(myNation.id);
+    if (blockadeInfo) {
+      const directionText = blockadeInfo.direction === 'both' ? 'fully blockaded' : 
+                           blockadeInfo.direction === 'outgoing' ? 'blockaded from sending resources' :
+                           'blockaded from receiving resources';
+      await interaction.reply({
+        content: `Your nation is ${directionText} and cannot participate in market trades.`,
+        flags: 64,
+      });
       return;
     }
 
@@ -121,7 +135,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         const meta = RESOURCE_META[resourceType as keyof typeof RESOURCE_META];
         await interaction.reply({
           content: `You only have **${current} ${meta.label}** — cannot post a sell offer for **${amount.toLocaleString()}**.`,
-          ephemeral: true,
+          flags: 64,
         });
         return;
       }
@@ -136,7 +150,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.reply({
       content:
-        `📋 Market offer **#${offerId}** posted!\n\n` +
+        `Market offer **#${offerId}** posted!\n\n` +
         `**${verb}:** ${resMeta.emoji} ${amount.toLocaleString()} ${resMeta.label}\n` +
         `**Price:** ${priceMeta.emoji} ${price.toLocaleString()} ${priceMeta.label}/unit (total: ${totalPrice.toLocaleString()})\n\n` +
         `Use \`/market list\` to see all open offers. Others can fill this with \`/market fill ${offerId}\`.`,
@@ -150,12 +164,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const offer = getMarketOffer(offerId);
 
     if (!offer || offer.status !== 'open') {
-      await interaction.reply({ content: `Market offer **#${offerId}** is not available.`, ephemeral: true });
+      await interaction.reply({ content: `Market offer **#${offerId}** is not available.`, flags: 64 });
       return;
     }
 
     if (offer.nation_id === myNation.id) {
-      await interaction.reply({ content: `You cannot fill your own market offer.`, ephemeral: true });
+      await interaction.reply({ content: `You cannot fill your own market offer.`, flags: 64 });
       return;
     }
 
@@ -163,7 +177,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (isSanctioned(offer.nation_id)) {
       await interaction.reply({
         content: `The nation that posted offer **#${offerId}** is currently under sanctions.`,
-        ephemeral: true,
+        flags: 64,
       });
       return;
     }
@@ -172,7 +186,30 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (isSanctioned(myNation.id)) {
       await interaction.reply({
         content: `Your nation is under sanctions and cannot participate in market trades.`,
-        ephemeral: true,
+        flags: 64,
+      });
+      return;
+    }
+
+    // Check if poster is blockaded
+    const posterBlockade = getBlockadeInfo(offer.nation_id);
+    if (posterBlockade) {
+      await interaction.reply({
+        content: `The nation that posted offer **#${offerId}** is currently blockaded and cannot participate in trades.`,
+        flags: 64,
+      });
+      return;
+    }
+
+    // Check if filler is blockaded
+    const fillerBlockade = getBlockadeInfo(myNation.id);
+    if (fillerBlockade) {
+      const directionText = fillerBlockade.direction === 'both' ? 'fully blockaded' : 
+                           fillerBlockade.direction === 'outgoing' ? 'blockaded from sending resources' :
+                           'blockaded from receiving resources';
+      await interaction.reply({
+        content: `Your nation is ${directionText} and cannot participate in market trades.`,
+        flags: 64,
       });
       return;
     }
@@ -181,7 +218,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (!success) {
       await interaction.reply({
         content: `You do not have sufficient resources to fill offer **#${offerId}**.`,
-        ephemeral: true,
+        flags: 64,
       });
       return;
     }
@@ -204,7 +241,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const verb = offer.offer_type === 'sell' ? 'bought' : 'sold';
     await interaction.reply({
       content:
-        `✅ Market offer **#${offerId}** filled!\n\n` +
+        `[SUCCESS] Market offer **#${offerId}** filled!\n\n` +
         `You **${verb}** ${resMeta.emoji} **${offer.amount.toLocaleString()} ${resMeta.label}** ` +
         `${offer.offer_type === 'sell' ? 'from' : 'to'} **${posterNation?.name ?? 'Unknown'}** ` +
         `for ${priceMeta.emoji} **${totalPrice.toLocaleString()} ${priceMeta.label}** total.`,
@@ -218,12 +255,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const offer = getMarketOffer(offerId);
 
     if (!offer || offer.status !== 'open') {
-      await interaction.reply({ content: `Market offer **#${offerId}** is not open or does not exist.`, ephemeral: true });
+      await interaction.reply({ content: `Market offer **#${offerId}** is not open or does not exist.`, flags: 64 });
       return;
     }
 
     if (offer.nation_id !== myNation.id) {
-      await interaction.reply({ content: `Market offer **#${offerId}** is not yours.`, ephemeral: true });
+      await interaction.reply({ content: `Market offer **#${offerId}** is not yours.`, flags: 64 });
       return;
     }
 
@@ -231,7 +268,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.reply({
       content: `Market offer **#${offerId}** has been cancelled.`,
-      ephemeral: true,
+      flags: 64,
     });
     return;
   }
@@ -241,7 +278,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const offers = getOpenMarketOffers();
 
     if (offers.length === 0) {
-      await interaction.reply({ content: 'The market board is empty. Be the first to post an offer with `/market post`.', ephemeral: true });
+      await interaction.reply({ content: 'The market board is empty. Be the first to post an offer with `/market post`.', flags: 64 });
       return;
     }
 
@@ -265,7 +302,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     const embed = new EmbedBuilder()
-      .setTitle('🏪 Galactic Market Board')
+      .setTitle('Galactic Market Board')
       .setColor(0xf39c12)
       .addFields(
         { name: '— Sell Offers —', value: formatOffers(sellOffers) },

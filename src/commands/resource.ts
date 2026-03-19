@@ -90,7 +90,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!isGM(interaction.member as GuildMember)) {
-    await interaction.reply({ content: 'Only the **Owner/GM** can modify resources.', ephemeral: true });
+    await interaction.reply({ content: 'Only the **Owner/GM** can modify resources.', flags: 64 });
     return;
   }
 
@@ -101,7 +101,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   if (!nation) {
     await interaction.reply({
       content: `<@${targetUser.id}> does not have a registered nation. Use \`/nation register\` first.`,
-      ephemeral: true,
+      flags: 64,
     });
     return;
   }
@@ -130,7 +130,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }
 
     await interaction.reply({
-      content: `⚙️ **${nation.name}** — All production rates set to **${amount.toLocaleString()}** per Month.`,
+      content: `**${nation.name}** — All production rates set to **${amount.toLocaleString()}** per Month.`,
     });
     return;
   }

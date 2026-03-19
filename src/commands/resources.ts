@@ -12,11 +12,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   if (!nation) {
     await interaction.reply({
       content: 'You do not have a registered nation. Ask the GM to register one for you.',
-      ephemeral: true,
+      flags: 64,
     });
     return;
   }
 
   const embed = buildResourceEmbed(nation, nation.id);
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  await interaction.reply({ embeds: [embed], flags: 64 });
 }

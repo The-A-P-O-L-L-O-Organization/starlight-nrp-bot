@@ -62,7 +62,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   if (!myNation) {
     await interaction.reply({
       content: 'You do not have a registered nation. Ask the GM to register one for you.',
-      ephemeral: true,
+      flags: 64,
     });
     return;
   }
@@ -72,20 +72,20 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const targetUser = interaction.options.getUser('nation', true);
 
     if (targetUser.id === interaction.user.id) {
-      await interaction.reply({ content: 'You cannot ally with yourself.', ephemeral: true });
+      await interaction.reply({ content: 'You cannot ally with yourself.', flags: 64 });
       return;
     }
 
     const targetNation = getNationByUserId(targetUser.id);
     if (!targetNation) {
-      await interaction.reply({ content: `<@${targetUser.id}> does not have a registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> does not have a registered nation.`, flags: 64 });
       return;
     }
 
     if (areAllied(myNation.id, targetNation.id)) {
       await interaction.reply({
         content: `**${myNation.name}** and **${targetNation.name}** are already allied.`,
-        ephemeral: true,
+        flags: 64,
       });
       return;
     }
@@ -96,7 +96,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     try {
       createAlliance(myNation.id, targetNation.id);
     } catch {
-      await interaction.reply({ content: 'An alliance between these nations already exists.', ephemeral: true });
+      await interaction.reply({ content: 'An alliance between these nations already exists.', flags: 64 });
       return;
     }
 
@@ -107,7 +107,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.reply({
       content:
-        `🤝 **Alliance Formed!**\n\n` +
+        `**Alliance Formed!**\n\n` +
         `**${myNation.name}** and **${targetNation.name}** are now formal allies.\n` +
         `Allied nations receive a **10% discount** on resource transfers between them.`,
     });
@@ -120,7 +120,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const targetNation = getNationByUserId(targetUser.id);
 
     if (!targetNation) {
-      await interaction.reply({ content: `<@${targetUser.id}> does not have a registered nation.`, ephemeral: true });
+      await interaction.reply({ content: `<@${targetUser.id}> does not have a registered nation.`, flags: 64 });
       return;
     }
 
@@ -128,7 +128,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (!dissolved) {
       await interaction.reply({
         content: `**${myNation.name}** and **${targetNation.name}** are not currently allied.`,
-        ephemeral: true,
+        flags: 64,
       });
       return;
     }
@@ -139,7 +139,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     }, myNation.id);
 
     await interaction.reply({
-      content: `💔 The alliance between **${myNation.name}** and **${targetNation.name}** has been dissolved.`,
+      content: `The alliance between **${myNation.name}** and **${targetNation.name}** has been dissolved.`,
     });
     return;
   }
@@ -149,7 +149,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const alliances = getAllAlliances();
 
     if (alliances.length === 0) {
-      await interaction.reply({ content: 'No alliances currently exist in the galaxy.', ephemeral: true });
+      await interaction.reply({ content: 'No alliances currently exist in the galaxy.', flags: 64 });
       return;
     }
 
@@ -157,11 +157,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       const nationA = getNationById(a.nation_a_id);
       const nationB = getNationById(a.nation_b_id);
       const date = a.formed_at.split('T')[0];
-      return `🤝 **${nationA?.name ?? 'Unknown'}** ↔ **${nationB?.name ?? 'Unknown'}** *(since ${date})*`;
+      return `**${nationA?.name ?? 'Unknown'}** ↔ **${nationB?.name ?? 'Unknown'}** *(since ${date})*`;
     });
 
     const embed = new EmbedBuilder()
-      .setTitle('🌐 Galactic Alliances')
+      .setTitle('Galactic Alliances')
       .setDescription(lines.join('\n'))
       .setColor(0x2ecc71)
       .setFooter({ text: 'Starlight NRP' })
@@ -185,7 +185,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         ? alliances.map((a) => {
             const partnerId = a.nation_a_id === myNation.id ? a.nation_b_id : a.nation_a_id;
             const partner = getNationById(partnerId);
-            return `🤝 **${partner?.name ?? 'Unknown'}**`;
+            return `**${partner?.name ?? 'Unknown'}**`;
           })
         : ['*No active alliances*'];
 
@@ -193,12 +193,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       sanctions.length > 0
         ? sanctions.map((s) => {
             const reasonStr = s.reason ? ` — *${s.reason}*` : '';
-            return `🚫 Sanction #${s.id}${reasonStr}`;
+            return `**Sanction #${s.id}**${reasonStr}`;
           })
         : ['*No active sanctions*'];
 
     const embed = new EmbedBuilder()
-      .setTitle(`🌐 Diplomatic Status — ${myNation.name}`)
+      .setTitle(`Diplomatic Status — ${myNation.name}`)
       .setColor(sanctioned ? 0xe74c3c : 0x2ecc71)
       .addFields(
         { name: '— Allies —', value: allyLines.join('\n') },
@@ -207,6 +207,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       .setFooter({ text: 'Starlight NRP' })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
   }
 }

@@ -1,6 +1,13 @@
 import { EmbedBuilder } from 'discord.js';
 import { RESOURCE_META, ResourceType, STATUS_META } from '../types';
-import { getResources, getCurrentYear, getNationStatuses, getProductionModifiers } from '../db/schema';
+import { 
+  getResources, 
+  getCurrentYear, 
+  getNationStatuses, 
+  getProductionModifiers,
+  getBlockadeSeverity,
+  getBlockadeWeeksUntilNextTier,
+} from '../db/schema';
 
 interface NationData {
   name: string;
@@ -33,7 +40,7 @@ export function buildResourceEmbed(nation: NationData, nationId: number): EmbedB
   const research = formatCategory(['physics', 'society', 'engineering'] as ResourceType[]);
 
   const embed = new EmbedBuilder()
-    .setTitle(`🌌 ${nation.name}`)
+    .setTitle(nation.name)
     .setDescription(`Resource sheet — **Year ${year}**`)
     .setColor(0x2b2d31)
     .addFields(
@@ -47,12 +54,24 @@ export function buildResourceEmbed(nation: NationData, nationId: number): EmbedB
     const statusLines = statuses.map((s) => {
       const meta = STATUS_META[s.status as keyof typeof STATUS_META];
       if (meta) {
+        // Special handling for blockade - show dynamic severity and countdown
+        if (s.status === 'blockaded') {
+          const severity = getBlockadeSeverity(nationId);
+          const weeksUntilNext = getBlockadeWeeksUntilNextTier(nationId);
+          const severityPct = Math.round(severity * 100);
+          const countdownText = weeksUntilNext !== null 
+            ? ` • ${weeksUntilNext} tick${weeksUntilNext === 1 ? '' : 's'} until escalation`
+            : ' • max penalty';
+          return `${meta.emoji} **${s.label}** *(${severityPct}% production${countdownText})*`;
+        }
+        
+        // Other status flags use static modifier
         const modStr = meta.productionModifier !== 0
           ? ` *(${meta.productionModifier > 0 ? '+' : ''}${Math.round(meta.productionModifier * 100)}% production)*`
           : '';
         return `${meta.emoji} **${s.label}**${modStr}`;
       }
-      return `🏷️ **${s.label}**`;
+      return `**${s.label}**`;
     });
     embed.addFields({ name: '— National Status —', value: statusLines.join('\n') });
   }
@@ -66,7 +85,7 @@ export function buildResourceEmbed(nation: NationData, nationId: number): EmbedB
         ? RESOURCE_META[m.resource_type as ResourceType]?.label ?? m.resource_type
         : 'All Resources';
       const tickStr = m.ticks_remaining === 1 ? '1 tick' : `${m.ticks_remaining} ticks`;
-      return `⚙️ **${m.label}:** ${sign}${pct}% ${scope} *(${tickStr} remaining)*`;
+      return `**${m.label}:** ${sign}${pct}% ${scope} *(${tickStr} remaining)*`;
     });
     embed.addFields({ name: '— Active Modifiers —', value: modLines.join('\n') });
   }
