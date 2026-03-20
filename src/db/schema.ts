@@ -154,6 +154,14 @@ export function initDb(): void {
       details    TEXT    NOT NULL DEFAULT '{}',
       created_at TEXT    NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS map_data (
+      id        INTEGER PRIMARY KEY CHECK (id = 1),
+      map_url   TEXT    NOT NULL DEFAULT '',
+      updated_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    INSERT OR IGNORE INTO map_data (id, map_url) VALUES (1, '');
   `);
   
   // Run migrations for existing databases
@@ -1073,4 +1081,19 @@ export function resetForNewSeason(startYear = 2300): void {
     db.prepare(`UPDATE game_state SET current_year = ? WHERE id = 1`).run(startYear);
   });
   reset();
+}
+
+// ── Map ─────────────────────────────────────────────────────────────────────────
+
+export function getCurrentMapUrl(): string | null {
+  const row = getDb().prepare('SELECT map_url FROM map_data WHERE id = 1').get() as
+    | { map_url: string }
+    | undefined;
+  return row?.map_url || null;
+}
+
+export function setMapUrl(url: string): void {
+  getDb().prepare(`
+    UPDATE map_data SET map_url = ?, updated_at = datetime('now') WHERE id = 1
+  `).run(url);
 }

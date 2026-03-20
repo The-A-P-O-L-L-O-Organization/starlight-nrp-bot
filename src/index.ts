@@ -17,6 +17,7 @@ import * as gmCmd from './commands/gm';
 import * as diplomacyCmd from './commands/diplomacy';
 import * as tradeCmd from './commands/trade';
 import * as marketCmd from './commands/market';
+import * as mapCmd from './commands/map';
 import * as viewNationCtx from './context-menus/view-nation';
 
 // ── Validate env ──────────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ slashCommands.set('gm', gmCmd);
 slashCommands.set('diplomacy', diplomacyCmd);
 slashCommands.set('trade', tradeCmd);
 slashCommands.set('market', marketCmd);
+slashCommands.set('map', mapCmd);
 
 const contextMenus = new Collection<string, { execute: (i: UserContextMenuCommandInteraction) => Promise<void> }>();
 contextMenus.set('View Nation Resources', viewNationCtx);

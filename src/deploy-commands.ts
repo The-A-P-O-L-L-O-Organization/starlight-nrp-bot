@@ -7,6 +7,7 @@ import * as gmCmd from './commands/gm';
 import * as diplomacyCmd from './commands/diplomacy';
 import * as tradeCmd from './commands/trade';
 import * as marketCmd from './commands/market';
+import * as mapCmd from './commands/map';
 import * as viewNationCtx from './context-menus/view-nation';
 
 const token = process.env.DISCORD_TOKEN;
@@ -25,6 +26,7 @@ const commands = [
   diplomacyCmd.data.toJSON(),
   tradeCmd.data.toJSON(),
   marketCmd.data.toJSON(),
+  mapCmd.data.toJSON(),
   viewNationCtx.data.toJSON(),
 ];
 
