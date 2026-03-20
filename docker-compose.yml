@@ -1,5 +1,6 @@
 services:
   bot:
+    image: starlight-nrp-bot
     build: .
     container_name: starlight-nrp-bot
     restart: unless-stopped

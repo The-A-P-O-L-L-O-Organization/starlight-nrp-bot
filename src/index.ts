@@ -56,6 +56,14 @@ client.once('clientReady', () => {
 });
 
 client.on('interactionCreate', async (interaction: Interaction) => {
+  const isNetworkError = (err: unknown): boolean => {
+    if (err && typeof err === 'object' && 'code' in err) {
+      const code = (err as { code: string }).code;
+      return code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'UND_ERR_CONNECT' || code === 'ETIMEDOUT';
+    }
+    return false;
+  };
+
   try {
     if (interaction.isChatInputCommand()) {
       const cmd = slashCommands.get(interaction.commandName);
@@ -71,13 +79,19 @@ client.on('interactionCreate', async (interaction: Interaction) => {
       return;
     }
   } catch (err) {
-    console.error('[Bot] Interaction error:', err);
+    if (!isNetworkError(err)) {
+      console.error('[Bot] Interaction error:', err);
+    }
     const reply = { content: 'An error occurred. Please try again.', flags: 64 };
     if (interaction.isRepliable()) {
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(reply).catch(() => null);
-      } else {
-        await interaction.reply(reply).catch(() => null);
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp(reply);
+        } else {
+          await interaction.reply(reply);
+        }
+      } catch {
+        // Failed to send error message - interaction may have timed out
       }
     }
   }

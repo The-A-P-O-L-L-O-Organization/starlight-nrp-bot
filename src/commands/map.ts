@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember, Colors } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember } from 'discord.js';
 import { canManageMap } from '../utils/permissions';
 import { getCurrentMapUrl, setMapUrl } from '../db/schema';
 
@@ -43,19 +43,19 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   if (subcommand === 'upload') {
+    await interaction.deferReply();
+
     const member = interaction.member;
     if (!member || !('roles' in member)) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'Unable to verify permissions.',
-        flags: 64,
       });
       return;
     }
 
     if (!canManageMap(member as GuildMember)) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'You do not have permission to upload maps. Only Owner/GM or Map Guy roles can do this.',
-        flags: 64,
       });
       return;
     }
@@ -63,17 +63,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const attachment = interaction.options.getAttachment('map', true);
 
     if (!attachment.contentType?.startsWith('image/')) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'The uploaded file must be an image.',
-        flags: 64,
       });
       return;
     }
 
     setMapUrl(attachment.url);
 
-    await interaction.reply({
-      content: `Map updated successfully.`,
+    await interaction.editReply({
+      content: 'Map updated successfully.',
     });
   }
 }
