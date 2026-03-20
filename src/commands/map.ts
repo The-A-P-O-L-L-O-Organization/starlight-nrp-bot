@@ -25,17 +25,18 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const subcommand = interaction.options.getSubcommand();
 
   if (subcommand === 'view') {
+    await interaction.deferReply();
+
     const mapUrl = getCurrentMapUrl();
 
     if (!mapUrl) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'No map has been uploaded yet.',
-        flags: 64,
       });
       return;
     }
 
-    await interaction.reply({
+    await interaction.editReply({
       content: '**Current Map**',
       files: [{ attachment: mapUrl }],
     });
