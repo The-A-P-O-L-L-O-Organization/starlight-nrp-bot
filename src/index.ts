@@ -57,9 +57,16 @@ client.once('clientReady', () => {
 
 client.on('interactionCreate', async (interaction: Interaction) => {
   const isNetworkError = (err: unknown): boolean => {
-    if (err && typeof err === 'object' && 'code' in err) {
-      const code = (err as { code: string }).code;
-      return code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'UND_ERR_CONNECT' || code === 'ETIMEDOUT';
+    if (err && typeof err === 'object') {
+      if ('code' in err) {
+        const code = (err as { code: string }).code;
+        if (['UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_CONNECT', 'ETIMEDOUT', 'ABORT_ERR'].includes(code)) {
+          return true;
+        }
+      }
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return true;
+      }
     }
     return false;
   };
