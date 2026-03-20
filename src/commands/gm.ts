@@ -510,7 +510,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         content: `Nation **${nation.name}** has been renamed to **${newName}**.`,
       });
     } catch {
-      await interaction.reply({ content: `A nation named **${newName}** already exists.`, flags: 64 });
+      await interaction.followUp({ content: `A nation named **${newName}** already exists.`, flags: 64 });
     }
     return;
   }
