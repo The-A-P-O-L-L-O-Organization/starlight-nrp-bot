@@ -104,4 +104,29 @@ client.on('interactionCreate', async (interaction: Interaction) => {
   }
 });
 
-client.login(token);
+async function loginWithRetry(client: Client, token: string, maxRetries = 3): Promise<void> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await client.login(token);
+      return;
+    } catch (err) {
+      const isDnsError = (err: unknown): boolean => {
+        if (err && typeof err === 'object' && 'code' in err) {
+          const code = (err as { code: string }).code;
+          return code === 'EAI_AGAIN' || code === 'ENOTFOUND' || code === 'ECONNREFUSED';
+        }
+        return false;
+      };
+
+      if (isDnsError(err) && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`[Bot] DNS lookup failed, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+loginWithRetry(client, token);
