@@ -1085,15 +1085,45 @@ export function resetForNewSeason(startYear = 2300): void {
 
 // ── Map ─────────────────────────────────────────────────────────────────────────
 
-export function getCurrentMapUrl(): string | null {
+const mapsDir = path.join(path.dirname(dbPath), 'maps');
+
+/** Get the local file path for the current map, or null if none exists. */
+export function getCurrentMapPath(): string | null {
   const row = getDb().prepare('SELECT map_url FROM map_data WHERE id = 1').get() as
     | { map_url: string }
     | undefined;
-  return row?.map_url || null;
+  
+  if (!row?.map_url) return null;
+  
+  const filePath = path.join(mapsDir, row.map_url);
+  if (!fs.existsSync(filePath)) return null;
+  
+  return filePath;
 }
 
-export function setMapUrl(url: string): void {
+/** Save a map image locally and store the filename in the database. */
+export async function saveMapImage(imageBuffer: Buffer, originalFilename: string): Promise<string> {
+  // Ensure maps directory exists
+  fs.mkdirSync(mapsDir, { recursive: true });
+  
+  // Get file extension from original filename
+  const ext = path.extname(originalFilename) || '.png';
+  const filename = `current_map${ext}`;
+  const filePath = path.join(mapsDir, filename);
+  
+  // Delete old map files (any extension)
+  const existingFiles = fs.readdirSync(mapsDir).filter(f => f.startsWith('current_map'));
+  for (const file of existingFiles) {
+    fs.unlinkSync(path.join(mapsDir, file));
+  }
+  
+  // Write new map file
+  fs.writeFileSync(filePath, imageBuffer);
+  
+  // Store just the filename in the database
   getDb().prepare(`
     UPDATE map_data SET map_url = ?, updated_at = datetime('now') WHERE id = 1
-  `).run(url);
+  `).run(filename);
+  
+  return filePath;
 }

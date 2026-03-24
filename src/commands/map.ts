@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember } from 'discord.js';
 import { canManageMap } from '../utils/permissions';
-import { getCurrentMapUrl, setMapUrl } from '../db/schema';
+import { getCurrentMapPath, saveMapImage } from '../db/schema';
 
 export const data = new SlashCommandBuilder()
   .setName('map')
@@ -27,9 +27,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   if (subcommand === 'view') {
     await interaction.deferReply();
 
-    const mapUrl = getCurrentMapUrl();
+    const mapPath = getCurrentMapPath();
 
-    if (!mapUrl) {
+    if (!mapPath) {
       await interaction.editReply({
         content: 'No map has been uploaded yet.',
       });
@@ -38,7 +38,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.editReply({
       content: '**Current Map**',
-      files: [{ attachment: mapUrl }],
+      files: [{ attachment: mapPath }],
     });
     return;
   }
@@ -70,7 +70,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return;
     }
 
-    setMapUrl(attachment.url);
+    // Download the image from Discord CDN
+    const response = await fetch(attachment.url);
+    if (!response.ok) {
+      await interaction.editReply({
+        content: 'Failed to download the image from Discord.',
+      });
+      return;
+    }
+
+    const imageBuffer = Buffer.from(await response.arrayBuffer());
+    await saveMapImage(imageBuffer, attachment.name);
 
     await interaction.editReply({
       content: 'Map updated successfully.',
