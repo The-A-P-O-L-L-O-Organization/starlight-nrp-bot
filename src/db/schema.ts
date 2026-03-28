@@ -1112,7 +1112,7 @@ export async function saveMapImage(imageBuffer: Buffer, originalFilename: string
   const filePath = path.join(mapsDir, filename);
   
   // Delete old map files (any extension)
-  const existingFiles = fs.readdirSync(mapsDir).filter(f => f.startsWith('current_map'));
+  const existingFiles = fs.readdirSync(mapsDir).filter(f => f.startsWith('current_map') && !f.startsWith('current_map_full'));
   for (const file of existingFiles) {
     fs.unlinkSync(path.join(mapsDir, file));
   }
@@ -1124,6 +1124,45 @@ export async function saveMapImage(imageBuffer: Buffer, originalFilename: string
   getDb().prepare(`
     UPDATE map_data SET map_url = ?, updated_at = datetime('now') WHERE id = 1
   `).run(filename);
+  
+  return filePath;
+}
+
+// ── Full Map (GM/Map Guy only) ────────────────────────────────────────────────
+
+/** Get the local file path for the full map, or null if none exists. */
+export function getFullMapPath(): string | null {
+  // Full map is stored as a file, not in database (to keep it simple)
+  const possibleExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+  
+  for (const ext of possibleExtensions) {
+    const filePath = path.join(mapsDir, `current_map_full${ext}`);
+    if (fs.existsSync(filePath)) {
+      return filePath;
+    }
+  }
+  
+  return null;
+}
+
+/** Save a full map image locally (GM/Map Guy restricted). */
+export async function saveFullMapImage(imageBuffer: Buffer, originalFilename: string): Promise<string> {
+  // Ensure maps directory exists
+  fs.mkdirSync(mapsDir, { recursive: true });
+  
+  // Get file extension from original filename
+  const ext = path.extname(originalFilename) || '.png';
+  const filename = `current_map_full${ext}`;
+  const filePath = path.join(mapsDir, filename);
+  
+  // Delete old full map files (any extension)
+  const existingFiles = fs.readdirSync(mapsDir).filter(f => f.startsWith('current_map_full'));
+  for (const file of existingFiles) {
+    fs.unlinkSync(path.join(mapsDir, file));
+  }
+  
+  // Write new map file
+  fs.writeFileSync(filePath, imageBuffer);
   
   return filePath;
 }
