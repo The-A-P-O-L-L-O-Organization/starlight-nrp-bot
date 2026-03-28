@@ -14,6 +14,12 @@ export const data = new SlashCommandBuilder()
 
   .addSubcommand((sub) =>
     sub
+      .setName('view-full')
+      .setDescription('[GM] View the current map (restricted to Owner/GM or Map Guy)'),
+  )
+
+  .addSubcommand((sub) =>
+    sub
       .setName('upload')
       .setDescription('[GM] Upload a new map image')
       .addAttachmentOption((o) =>
@@ -26,6 +32,40 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   if (subcommand === 'view') {
     await interaction.deferReply();
+
+    const mapPath = getCurrentMapPath();
+
+    if (!mapPath) {
+      await interaction.editReply({
+        content: 'No map has been uploaded yet.',
+      });
+      return;
+    }
+
+    await interaction.editReply({
+      content: '**Current Map**',
+      files: [{ attachment: mapPath }],
+    });
+    return;
+  }
+
+  if (subcommand === 'view-full') {
+    await interaction.deferReply();
+
+    const member = interaction.member;
+    if (!member || !('roles' in member)) {
+      await interaction.editReply({
+        content: 'Unable to verify permissions.',
+      });
+      return;
+    }
+
+    if (!canManageMap(member as GuildMember)) {
+      await interaction.editReply({
+        content: 'You do not have permission to use this command. Only Owner/GM or Map Guy roles can do this.',
+      });
+      return;
+    }
 
     const mapPath = getCurrentMapPath();
 
