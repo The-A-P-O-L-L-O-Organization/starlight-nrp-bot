@@ -1,8 +1,6 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember, TextChannel } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember } from 'discord.js';
 import { canManageMap } from '../utils/permissions';
 import { getCurrentMapPath, saveMapImage, getFullMapPath, saveFullMapImage } from '../db/schema';
-
-const ALLOWED_FULL_MAP_CHANNELS = ['maps-private', 'notes'];
 
 export const data = new SlashCommandBuilder()
   .setName('map')
@@ -17,7 +15,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub
       .setName('view-full')
-      .setDescription('[GM] View the full map (restricted to Owner/GM or Map Guy, specific channels only)'),
+      .setDescription('[GM] View the full map (restricted to Owner/GM or Map Guy)'),
   )
 
   .addSubcommand((sub) =>
@@ -32,17 +30,11 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub
       .setName('upload-full')
-      .setDescription('[GM] Upload a new full map image (restricted to Owner/GM or Map Guy, specific channels only)')
+      .setDescription('[GM] Upload a new full map image (restricted to Owner/GM or Map Guy)')
       .addAttachmentOption((o) =>
         o.setName('map').setDescription('The full map image to upload').setRequired(true),
       ),
   );
-
-function isAllowedFullMapChannel(interaction: ChatInputCommandInteraction): boolean {
-  const channel = interaction.channel;
-  if (!channel || !('name' in channel)) return false;
-  return ALLOWED_FULL_MAP_CHANNELS.includes((channel as TextChannel).name);
-}
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const subcommand = interaction.options.getSubcommand();
@@ -67,7 +59,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   if (subcommand === 'view-full') {
-    await interaction.deferReply();
+    // Ephemeral reply - only visible to the user who ran the command
+    await interaction.deferReply({ ephemeral: true });
 
     const member = interaction.member;
     if (!member || !('roles' in member)) {
@@ -80,13 +73,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (!canManageMap(member as GuildMember)) {
       await interaction.editReply({
         content: 'You do not have permission to use this command. Only Owner/GM or Map Guy roles can do this.',
-      });
-      return;
-    }
-
-    if (!isAllowedFullMapChannel(interaction)) {
-      await interaction.editReply({
-        content: `This command can only be used in the following channels: ${ALLOWED_FULL_MAP_CHANNELS.join(', ')}`,
       });
       return;
     }
@@ -166,13 +152,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (!canManageMap(member as GuildMember)) {
       await interaction.editReply({
         content: 'You do not have permission to upload maps. Only Owner/GM or Map Guy roles can do this.',
-      });
-      return;
-    }
-
-    if (!isAllowedFullMapChannel(interaction)) {
-      await interaction.editReply({
-        content: `This command can only be used in the following channels: ${ALLOWED_FULL_MAP_CHANNELS.join(', ')}`,
       });
       return;
     }
