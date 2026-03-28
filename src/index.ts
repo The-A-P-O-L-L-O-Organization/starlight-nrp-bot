@@ -71,6 +71,16 @@ client.on('interactionCreate', async (interaction: Interaction) => {
     return false;
   };
 
+  const isUnknownInteraction = (err: unknown): boolean => {
+    if (err && typeof err === 'object') {
+      if ('code' in err) {
+        const code = (err as { code: number | string }).code;
+        return code === 10062 || code === '10062';
+      }
+    }
+    return false;
+  };
+
   try {
     if (interaction.isChatInputCommand()) {
       const cmd = slashCommands.get(interaction.commandName);
@@ -86,6 +96,9 @@ client.on('interactionCreate', async (interaction: Interaction) => {
       return;
     }
   } catch (err) {
+    if (isUnknownInteraction(err)) {
+      return;
+    }
     if (!isNetworkError(err)) {
       console.error('[Bot] Interaction error:', err);
     }
@@ -97,8 +110,10 @@ client.on('interactionCreate', async (interaction: Interaction) => {
         } else {
           await interaction.reply(reply);
         }
-      } catch {
-        // Failed to send error message - interaction may have timed out
+      } catch (followUpErr) {
+        if (isUnknownInteraction(followUpErr)) {
+          return;
+        }
       }
     }
   }
