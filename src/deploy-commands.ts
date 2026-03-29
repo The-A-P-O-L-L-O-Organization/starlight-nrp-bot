@@ -4,6 +4,7 @@ import * as nationCmd from './commands/nation';
 import * as resourceCmd from './commands/resource';
 import * as resourcesCmd from './commands/resources';
 import * as gmCmd from './commands/gm';
+import * as gm2Cmd from './commands/gm2';
 import * as diplomacyCmd from './commands/diplomacy';
 import * as tradeCmd from './commands/trade';
 import * as marketCmd from './commands/market';
@@ -23,6 +24,7 @@ const commands = [
   resourceCmd.data.toJSON(),
   resourcesCmd.data.toJSON(),
   gmCmd.data.toJSON(),
+  gm2Cmd.data.toJSON(),
   diplomacyCmd.data.toJSON(),
   tradeCmd.data.toJSON(),
   marketCmd.data.toJSON(),
