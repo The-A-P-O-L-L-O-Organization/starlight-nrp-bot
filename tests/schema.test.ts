@@ -22,9 +22,9 @@ function createInMemoryDb(): Database.Database {
   db.exec(`
     CREATE TABLE IF NOT EXISTS game_state (
       id           INTEGER PRIMARY KEY CHECK (id = 1),
-      current_year INTEGER NOT NULL DEFAULT 2300
+      current_year INTEGER NOT NULL DEFAULT 2200
     );
-    INSERT OR IGNORE INTO game_state (id, current_year) VALUES (1, 2300);
+    INSERT OR IGNORE INTO game_state (id, current_year) VALUES (1, 2200);
 
     CREATE TABLE IF NOT EXISTS nations (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,7 +88,7 @@ function getCurrentYear(db: Database.Database): number {
   const row = db.prepare('SELECT current_year FROM game_state WHERE id = 1').get() as
     | { current_year: number }
     | undefined;
-  return row?.current_year ?? 2300;
+  return row?.current_year ?? 2200;
 }
 
 function advanceYear(db: Database.Database, years: number): number {
@@ -224,8 +224,8 @@ describe('Database — year management', () => {
     db = createInMemoryDb();
   });
 
-  it('starts at year 2300', () => {
-    expect(getCurrentYear(db)).toBe(2300);
+  it('starts at year 2200', () => {
+    expect(getCurrentYear(db)).toBe(2200);
   });
 
   it('advances the year by the specified amount', () => {

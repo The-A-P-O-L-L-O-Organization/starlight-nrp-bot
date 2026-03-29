@@ -36,10 +36,10 @@ export function initDb(): void {
   _db.exec(`
     CREATE TABLE IF NOT EXISTS game_state (
       id          INTEGER PRIMARY KEY CHECK (id = 1),
-      current_year INTEGER NOT NULL DEFAULT 2300
+      current_year INTEGER NOT NULL DEFAULT 2200
     );
 
-    INSERT OR IGNORE INTO game_state (id, current_year) VALUES (1, 2300);
+    INSERT OR IGNORE INTO game_state (id, current_year) VALUES (1, 2200);
 
     CREATE TABLE IF NOT EXISTS nations (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -196,7 +196,7 @@ export function getCurrentYear(): number {
   const row = getDb().prepare('SELECT current_year FROM game_state WHERE id = 1').get() as
     | { current_year: number }
     | undefined;
-  return row?.current_year ?? 2300;
+  return row?.current_year ?? 2200;
 }
 
 export function advanceYear(years: number): number {
@@ -1063,7 +1063,7 @@ export function archiveSeason(seasonLabel: string): string {
 }
 
 /** Wipe all gameplay data and reset the year. Nations table is cleared; all related data cascades. */
-export function resetForNewSeason(startYear = 2300): void {
+export function resetForNewSeason(startYear = 2200): void {
   const db = getDb();
   const reset = db.transaction(() => {
     db.prepare(`DELETE FROM audit_log`).run();

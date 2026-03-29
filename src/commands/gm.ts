@@ -105,7 +105,7 @@ export const data = new SlashCommandBuilder()
       .setName('set-year')
       .setDescription('[GM] Manually set the current in-game year')
       .addIntegerOption((o) =>
-        o.setName('year').setDescription('The year to set (e.g. 2300)').setRequired(true).setMinValue(1),
+        o.setName('year').setDescription('The year to set (e.g. 2200)').setRequired(true).setMinValue(1),
       ),
   )
 
@@ -402,7 +402,7 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption((o) =>
         o
           .setName('start-year')
-          .setDescription('Starting year for the new season (default: 2300)')
+          .setDescription('Starting year for the new season (default: 2200)')
           .setRequired(false)
           .setMinValue(1),
       ),
@@ -1082,7 +1082,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   // ── new-season ───────────────────────────────────────────────────────────────
   if (sub === 'new-season') {
     const label = interaction.options.getString('label', true).trim();
-    const startYear = interaction.options.getInteger('start-year') ?? 2300;
+    const startYear = interaction.options.getInteger('start-year') ?? 2200;
 
     await interaction.deferReply();
 

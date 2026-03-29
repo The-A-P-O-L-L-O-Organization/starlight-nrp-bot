@@ -17,9 +17,9 @@ function createInMemoryDb(): Database.Database {
   db.exec(`
     CREATE TABLE IF NOT EXISTS game_state (
       id           INTEGER PRIMARY KEY CHECK (id = 1),
-      current_year INTEGER NOT NULL DEFAULT 2300
+      current_year INTEGER NOT NULL DEFAULT 2200
     );
-    INSERT OR IGNORE INTO game_state (id, current_year) VALUES (1, 2300);
+    INSERT OR IGNORE INTO game_state (id, current_year) VALUES (1, 2200);
 
     CREATE TABLE IF NOT EXISTS nations (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1034,7 +1034,7 @@ describe('Season reset', () => {
     db.prepare('INSERT INTO audit_log (nation_id, action, actor, details) VALUES (?, ?, ?, ?)').run(n1, 'test_event', 'GM', '{}');
   });
 
-  function resetForNewSeason(db: Database.Database, startYear = 2300): void {
+  function resetForNewSeason(db: Database.Database, startYear = 2200): void {
     db.transaction(() => {
       db.prepare(`DELETE FROM audit_log`).run();
       db.prepare(`DELETE FROM market_offers`).run();
@@ -1108,9 +1108,9 @@ describe('Season reset', () => {
     expect(row.current_year).toBe(2400);
   });
 
-  it('defaults current_year to 2300', () => {
+  it('defaults current_year to 2200', () => {
     resetForNewSeason(db);
     const row = db.prepare('SELECT current_year FROM game_state WHERE id = 1').get() as { current_year: number };
-    expect(row.current_year).toBe(2300);
+    expect(row.current_year).toBe(2200);
   });
 });

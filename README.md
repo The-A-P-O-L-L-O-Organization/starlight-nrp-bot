@@ -1,6 +1,6 @@
 # Starlight NRP Bot
 
-A Discord bot for the **Starlight** space nation roleplay (NRP) game. Players manage their nations' economies across a persistent, simulated galaxy starting in the year **2300**. Time advances automatically in 25-year ticks, crediting each nation's stockpiles with their monthly production.
+A Discord bot for the **Starlight** space nation roleplay (NRP) game. Players manage their nations' economies across a persistent, simulated galaxy starting in the year **2200**. Time advances automatically in 25-year ticks, crediting each nation's stockpiles with their monthly production.
 
 ---
 
