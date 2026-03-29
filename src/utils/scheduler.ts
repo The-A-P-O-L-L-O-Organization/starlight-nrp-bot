@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { Client, TextChannel, EmbedBuilder } from 'discord.js';
-import { applyTick, advanceYear } from '../db/schema';
+import { applyTick, advanceYear, isTickFrozen } from '../db/schema';
 
 const YEARS_PER_TICK = 25;
 
@@ -23,6 +23,11 @@ export function startScheduler(client: Client): void {
 export async function runTick(client: Client): Promise<boolean> {
   if (tickRunning) {
     console.warn('[Scheduler] Tick already in progress — skipping.');
+    return false;
+  }
+
+  if (isTickFrozen()) {
+    console.warn('[Scheduler] Tick is frozen — skipping.');
     return false;
   }
 

@@ -119,7 +119,8 @@ export type AuditAction =
   | 'alliance_formed'
   | 'alliance_dissolved'
   | 'tribute_added'
-  | 'tribute_removed';
+  | 'tribute_removed'
+  | 'tick_freeze';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 

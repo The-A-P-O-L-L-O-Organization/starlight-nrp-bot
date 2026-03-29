@@ -22,9 +22,10 @@ function createInMemoryDb(): Database.Database {
   db.exec(`
     CREATE TABLE IF NOT EXISTS game_state (
       id           INTEGER PRIMARY KEY CHECK (id = 1),
-      current_year INTEGER NOT NULL DEFAULT 2200
+      current_year INTEGER NOT NULL DEFAULT 2200,
+      tick_frozen  INTEGER NOT NULL DEFAULT 0
     );
-    INSERT OR IGNORE INTO game_state (id, current_year) VALUES (1, 2200);
+    INSERT OR IGNORE INTO game_state (id, current_year, tick_frozen) VALUES (1, 2200, 0);
 
     CREATE TABLE IF NOT EXISTS nations (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,

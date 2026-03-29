@@ -7,10 +7,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Hoist mock functions so they are available inside vi.mock factories ───────
-const { mockApplyTick, mockAdvanceYear, mockGetCurrentYear } = vi.hoisted(() => ({
+const { mockApplyTick, mockAdvanceYear, mockGetCurrentYear, mockIsTickFrozen } = vi.hoisted(() => ({
   mockApplyTick: vi.fn(),
   mockAdvanceYear: vi.fn().mockReturnValue(2325),
   mockGetCurrentYear: vi.fn().mockReturnValue(2325),
+  mockIsTickFrozen: vi.fn().mockReturnValue(false),
 }));
 
 // ── Mock the DB layer so we don't need a real database ───────────────────────
@@ -18,6 +19,7 @@ vi.mock('../src/db/schema', () => ({
   applyTick: mockApplyTick,
   advanceYear: mockAdvanceYear,
   getCurrentYear: mockGetCurrentYear,
+  isTickFrozen: mockIsTickFrozen,
 }));
 
 // ── Mock discord.js ───────────────────────────────────────────────────────────
@@ -97,6 +99,7 @@ describe('Scheduler — runTick', () => {
 describe('Scheduler — tick locking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsTickFrozen.mockReturnValue(false);
     process.env.TIMELINE_CHANNEL_ID = 'mock-channel-id';
   });
 
@@ -128,6 +131,29 @@ describe('Scheduler — tick locking', () => {
     const result = await runTick(client);
     expect(result).toBe(true);
     expect(mockApplyTick).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('Scheduler — tick freezing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.TIMELINE_CHANNEL_ID = 'mock-channel-id';
+  });
+
+  it('returns false and skips DB work when tick is frozen', async () => {
+    mockIsTickFrozen.mockReturnValue(true);
+    const client = makeMockClient();
+    const result = await runTick(client);
+    expect(result).toBe(false);
+    expect(mockApplyTick).not.toHaveBeenCalled();
+  });
+
+  it('allows tick to run when not frozen', async () => {
+    mockIsTickFrozen.mockReturnValue(false);
+    const client = makeMockClient();
+    const result = await runTick(client);
+    expect(result).toBe(true);
+    expect(mockApplyTick).toHaveBeenCalledOnce();
   });
 });
 

@@ -39,6 +39,8 @@ import {
   resetForNewSeason,
   buildGameSnapshot,
   getBlockadeInfo,
+  isTickFrozen,
+  setTickFrozen,
 } from '../db/schema';
 import { buildResourceEmbed } from '../utils/embeds';
 import { runTick } from '../utils/scheduler';
@@ -114,6 +116,20 @@ export const data = new SlashCommandBuilder()
     sub
       .setName('force-tick')
       .setDescription('[GM] Immediately trigger a production tick (+25 years) for all nations'),
+  )
+
+  // ── freeze-tick ─────────────────────────────────────────────────────────────
+  .addSubcommand((sub) =>
+    sub
+      .setName('freeze-tick')
+      .setDescription('[GM] Freeze the tick so it does not progress automatically'),
+  )
+
+  // ── unfreeze-tick ───────────────────────────────────────────────────────────
+  .addSubcommand((sub) =>
+    sub
+      .setName('unfreeze-tick')
+      .setDescription('[GM] Unfreeze the tick to allow automatic progression'),
   )
 
   // ── backfill-defaults ────────────────────────────────────────────────────────
@@ -554,6 +570,30 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     await interaction.editReply({
       content: `Production tick triggered manually. Year is now **${getCurrentYear()}**. Check <#${process.env.TIMELINE_CHANNEL_ID ?? 'timeline-events'}> for the announcement.`,
     });
+    return;
+  }
+
+  // ── freeze-tick ─────────────────────────────────────────────────────────────
+  if (sub === 'freeze-tick') {
+    if (isTickFrozen()) {
+      await interaction.reply({ content: 'The tick is already **frozen**.', flags: 64 });
+      return;
+    }
+    setTickFrozen(true);
+    logAuditEvent('tick_freeze', interaction.user.id, { frozen: true });
+    await interaction.reply({ content: '🔒 The tick has been **frozen**. Automatic ticks will not progress until unfrozen.' });
+    return;
+  }
+
+  // ── unfreeze-tick ───────────────────────────────────────────────────────────
+  if (sub === 'unfreeze-tick') {
+    if (!isTickFrozen()) {
+      await interaction.reply({ content: 'The tick is not currently frozen.', flags: 64 });
+      return;
+    }
+    setTickFrozen(false);
+    logAuditEvent('tick_freeze', interaction.user.id, { frozen: false });
+    await interaction.reply({ content: '🔓 The tick has been **unfrozen**. Automatic ticks will now progress normally.' });
     return;
   }
 

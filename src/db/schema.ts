@@ -36,10 +36,11 @@ export function initDb(): void {
   _db.exec(`
     CREATE TABLE IF NOT EXISTS game_state (
       id          INTEGER PRIMARY KEY CHECK (id = 1),
-      current_year INTEGER NOT NULL DEFAULT 2200
+      current_year INTEGER NOT NULL DEFAULT 2200,
+      tick_frozen  INTEGER NOT NULL DEFAULT 0
     );
 
-    INSERT OR IGNORE INTO game_state (id, current_year) VALUES (1, 2200);
+    INSERT OR IGNORE INTO game_state (id, current_year, tick_frozen) VALUES (1, 2200, 0);
 
     CREATE TABLE IF NOT EXISTS nations (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,6 +189,24 @@ function runMigrations(): void {
     db.exec(`ALTER TABLE nation_statuses ADD COLUMN metadata TEXT`);
     console.log('✅ Migration complete: metadata column added');
   }
+
+  // Check if tick_frozen column exists in game_state
+  const gameStateInfo = db.prepare(`PRAGMA table_info(game_state)`).all() as Array<{
+    cid: number;
+    name: string;
+    type: string;
+    notnull: number;
+    dflt_value: any;
+    pk: number;
+  }>;
+  
+  const hasTickFrozen = gameStateInfo.some(col => col.name === 'tick_frozen');
+  
+  if (!hasTickFrozen) {
+    console.log('🔄 Running migration: Adding tick_frozen column to game_state...');
+    db.exec(`ALTER TABLE game_state ADD COLUMN tick_frozen INTEGER NOT NULL DEFAULT 0`);
+    console.log('✅ Migration complete: tick_frozen column added');
+  }
 }
 
 // ── Game state ────────────────────────────────────────────────────────────────
@@ -202,6 +221,17 @@ export function getCurrentYear(): number {
 export function advanceYear(years: number): number {
   getDb().prepare('UPDATE game_state SET current_year = current_year + ? WHERE id = 1').run(years);
   return getCurrentYear();
+}
+
+export function isTickFrozen(): boolean {
+  const row = getDb().prepare('SELECT tick_frozen FROM game_state WHERE id = 1').get() as
+    | { tick_frozen: number }
+    | undefined;
+  return (row?.tick_frozen ?? 0) === 1;
+}
+
+export function setTickFrozen(frozen: boolean): void {
+  getDb().prepare('UPDATE game_state SET tick_frozen = ? WHERE id = 1').run(frozen ? 1 : 0);
 }
 
 // ── Nations ───────────────────────────────────────────────────────────────────
