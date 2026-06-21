@@ -90,7 +90,7 @@ docker compose run --rm bot pnpm deploy
 | Command                 | Description                                              |
 |-------------------------|----------------------------------------------------------|
 | `/resources`            | View your own nation's resource stockpiles (private)     |
-| `/nation view`          | View any nation's resource sheet                         |
+| `/nation view`          | View a nation's resource sheet                           |
 | `/nation list`          | List all registered nations                              |
 | `/diplomacy propose-alliance` | Propose a formal alliance with another nation       |
 | `/diplomacy dissolve-alliance` | Dissolve an alliance with another nation           |
